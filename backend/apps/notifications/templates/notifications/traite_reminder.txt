@@ -1,0 +1,13 @@
+Bonjour,
+
+Voici le rappel des traites arrivant à échéance.
+{% if due_today %}
+À ÉCHÉANCE AUJOURD'HUI ({{ today|date:"d/m/Y" }}) — total {{ total_today|floatformat:2 }} DH
+{% for p in due_today %}  - {{ p.record.client_name }} : {{ p.price|floatformat:2 }} DH
+{% endfor %}{% endif %}{% if due_tomorrow %}
+À ÉCHÉANCE DEMAIN ({{ tomorrow|date:"d/m/Y" }}) — total {{ total_tomorrow|floatformat:2 }} DH
+{% for p in due_tomorrow %}  - {{ p.record.client_name }} : {{ p.price|floatformat:2 }} DH
+{% endfor %}{% endif %}
+Détails dans Clients Money.
+
+— HJS Transport (message automatique)

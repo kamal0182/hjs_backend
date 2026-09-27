@@ -1,0 +1,84 @@
+# Development stack: Django dev server + Vite dev server, both with hot reload.
+#   docker compose up --build
+#   -> app on http://localhost:5173, API on http://localhost:8000/api/
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_DB=hjs
+      - POSTGRES_USER=hjs
+      - POSTGRES_PASSWORD=hjs
+    ports:
+      # Bound to this machine only, so a local venv / DB client can connect too.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hjs -d hjs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgres://hjs:hjs@db:5432/hjs
+      # Create the default users (apps/accounts/.../users_seed.py) on startup.
+      - SEED_USERS=1
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Bound to this machine only: the dev server runs with DEBUG=True.
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ./backend:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # "Cron": hourly notification jobs (Traite due-date reminders by email).
+  # Without SMTP_HOST in backend/.env the emails are printed to this container's logs.
+  scheduler:
+    build:
+      context: ./backend
+      target: development
+    command: ["python", "manage.py", "run_scheduler"]
+    env_file:
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgres://hjs:hjs@db:5432/hjs
+      - SKIP_MIGRATE=1
+    volumes:
+      - ./backend:/app
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_PROXY_TARGET=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_healthy
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
