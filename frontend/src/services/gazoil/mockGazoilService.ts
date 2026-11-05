@@ -114,4 +114,30 @@ export const mockGazoilService: GazoilService = {
     MOCK_GAZOIL_COMMENTS.unshift(comment);
     return wait(comment);
   },
+
+  async updateRecord(id: string, input: CreateGazoilRecordInput): Promise<GazoilRecord> {
+    const index = MOCK_GAZOIL_RECORDS.findIndex((r) => r.id === id);
+    if (index === -1) throw new Error("Plein introuvable.");
+    MOCK_GAZOIL_RECORDS[index] = { ...MOCK_GAZOIL_RECORDS[index], ...input, matricule: input.matricule.trim() };
+    return wait(MOCK_GAZOIL_RECORDS[index]);
+  },
+
+  async deleteRecord(id: string): Promise<void> {
+    const index = MOCK_GAZOIL_RECORDS.findIndex((r) => r.id === id);
+    if (index !== -1) MOCK_GAZOIL_RECORDS.splice(index, 1);
+    return wait(undefined);
+  },
+
+  async updateComment(id: string, input: CreateGazoilCommentInput): Promise<GazoilComment> {
+    const index = MOCK_GAZOIL_COMMENTS.findIndex((c) => c.id === id);
+    if (index === -1) throw new Error("Commentaire introuvable.");
+    MOCK_GAZOIL_COMMENTS[index] = { ...MOCK_GAZOIL_COMMENTS[index], ...input };
+    return wait(MOCK_GAZOIL_COMMENTS[index]);
+  },
+
+  async deleteComment(id: string): Promise<void> {
+    const index = MOCK_GAZOIL_COMMENTS.findIndex((c) => c.id === id);
+    if (index !== -1) MOCK_GAZOIL_COMMENTS.splice(index, 1);
+    return wait(undefined);
+  },
 };

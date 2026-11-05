@@ -3,18 +3,39 @@ import { useState } from "react";
 import { useAuth } from "../auth/useAuth";
 import { ChargeForm } from "../components/charges/ChargeForm";
 import { ChargesTable } from "../components/charges/ChargesTable";
+import { ActionError } from "../components/gestion/GestionParts";
+import { errorMessage } from "../components/gestion/gestionUtils";
 import { Modal } from "../components/ui/Modal";
 import { Pagination } from "../components/ui/Pagination";
 import { StatCard, StatCardSkeleton } from "../components/ui/StatCard";
 import { useChargesData } from "../hooks/useChargesData";
+import { chargesService } from "../services/charges";
+import type { ChargeRecord } from "../types/charges";
 import { formatCurrency } from "../utils/formatCurrency";
+import { formatDate } from "../utils/formatDate";
+
+type FormState = { mode: "create" } | { mode: "edit"; charge: ChargeRecord } | null;
 
 export function ChargesPage() {
   const { isAdmin } = useAuth();
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [form, setForm] = useState<FormState>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { charges, total, totalPages, page, setPage, stats, isLoading, error, retry, refreshAll } =
     useChargesData();
+
+  async function handleDelete(charge: ChargeRecord) {
+    if (!window.confirm(`Supprimer la charge du ${formatDate(charge.date)} (${formatCurrency(charge.montant)}) ?`)) {
+      return;
+    }
+    setActionError(null);
+    try {
+      await chargesService.deleteCharge(charge.id);
+      retry();
+    } catch (err) {
+      setActionError(errorMessage(err, "Impossible de supprimer la charge."));
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -26,7 +47,7 @@ export function ChargesPage() {
         {isAdmin && (
           <button
             type="button"
-            onClick={() => setIsFormOpen(true)}
+            onClick={() => setForm({ mode: "create" })}
             className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             <Plus size={16} />
@@ -34,6 +55,8 @@ export function ChargesPage() {
           </button>
         )}
       </div>
+
+      {actionError && <ActionError message={actionError} onDismiss={() => setActionError(null)} />}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {stats ? (
@@ -59,20 +82,31 @@ export function ChargesPage() {
 
         <div className="h-4" />
 
-        <ChargesTable charges={charges} isLoading={isLoading} error={error} onRetry={retry} />
+        <ChargesTable
+          charges={charges}
+          isLoading={isLoading}
+          error={error}
+          onRetry={retry}
+          onEdit={isAdmin ? (charge) => setForm({ mode: "edit", charge }) : undefined}
+          onDelete={isAdmin ? handleDelete : undefined}
+        />
 
         {!isLoading && !error && charges.length > 0 && (
           <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
       </div>
 
-      {isFormOpen && (
-        <Modal title="Nouvelle charge" onClose={() => setIsFormOpen(false)}>
+      {form && (
+        <Modal title={form.mode === "edit" ? "Modifier la charge" : "Nouvelle charge"} onClose={() => setForm(null)}>
           <ChargeForm
-            onCancel={() => setIsFormOpen(false)}
+            charge={form.mode === "edit" ? form.charge : undefined}
+            onCancel={() => setForm(null)}
             onSuccess={() => {
-              setIsFormOpen(false);
-              refreshAll();
+              // A new charge shows up on page 1; an edited one stays where it is.
+              const wasEdit = form.mode === "edit";
+              setForm(null);
+              if (wasEdit) retry();
+              else refreshAll();
             }}
           />
         </Modal>

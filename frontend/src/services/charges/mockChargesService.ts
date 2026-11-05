@@ -43,4 +43,17 @@ export const mockChargesService: ChargesService = {
     MOCK_CHARGES.unshift(charge);
     return wait(charge);
   },
+
+  async updateCharge(id: string, input: CreateChargeInput): Promise<ChargeRecord> {
+    const index = MOCK_CHARGES.findIndex((c) => c.id === id);
+    if (index === -1) throw new Error("Charge introuvable.");
+    MOCK_CHARGES[index] = { ...MOCK_CHARGES[index], ...input };
+    return wait(MOCK_CHARGES[index]);
+  },
+
+  async deleteCharge(id: string): Promise<void> {
+    const index = MOCK_CHARGES.findIndex((c) => c.id === id);
+    if (index !== -1) MOCK_CHARGES.splice(index, 1);
+    return wait(undefined);
+  },
 };

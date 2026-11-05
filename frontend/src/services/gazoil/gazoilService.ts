@@ -17,6 +17,10 @@ export interface GazoilService {
   getHistoryForMatricule(matricule: string): Promise<GazoilRecord[]>;
   getMatricules(): Promise<string[]>;
   createRecord(input: CreateGazoilRecordInput): Promise<GazoilRecord>;
+  updateRecord(id: string, input: CreateGazoilRecordInput): Promise<GazoilRecord>;
+  deleteRecord(id: string): Promise<void>;
   getCommentsForMatricule(matricule: string): Promise<GazoilComment[]>;
   addComment(input: CreateGazoilCommentInput): Promise<GazoilComment>;
+  updateComment(id: string, input: CreateGazoilCommentInput): Promise<GazoilComment>;
+  deleteComment(id: string): Promise<void>;
 }

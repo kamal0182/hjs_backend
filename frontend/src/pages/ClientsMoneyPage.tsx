@@ -5,15 +5,22 @@ import { ClientMoneyDetailsModal } from "../components/clientsMoney/ClientMoneyD
 import { ClientMoneyRecordForm } from "../components/clientsMoney/ClientMoneyRecordForm";
 import { ClientsMoneyTable } from "../components/clientsMoney/ClientsMoneyTable";
 import { PaymentForm } from "../components/clientsMoney/PaymentForm";
+import { ActionError } from "../components/gestion/GestionParts";
+import { errorMessage } from "../components/gestion/gestionUtils";
 import { Modal } from "../components/ui/Modal";
 import { Pagination } from "../components/ui/Pagination";
 import { StatCard, StatCardSkeleton } from "../components/ui/StatCard";
 import { useClientsMoneyData } from "../hooks/useClientsMoneyData";
+import { clientsMoneyService } from "../services/clientsMoney";
+import type { ClientMoneyRecord, ClientMoneySummary } from "../types/clientsMoney";
 import { formatCurrency } from "../utils/formatCurrency";
+
+type RecordFormState = { mode: "create" } | { mode: "edit"; record: ClientMoneyRecord } | null;
 
 export function ClientsMoneyPage() {
   const { isAdmin } = useAuth();
-  const [isRecordFormOpen, setIsRecordFormOpen] = useState(false);
+  const [recordForm, setRecordForm] = useState<RecordFormState>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [paymentTarget, setPaymentTarget] = useState<{ id: string; name: string } | null>(null);
   const [detailsTarget, setDetailsTarget] = useState<{ id: string; name: string } | null>(null);
 
@@ -32,6 +39,18 @@ export function ClientsMoneyPage() {
     refreshAll,
   } = useClientsMoneyData();
 
+  async function handleDelete(client: ClientMoneySummary) {
+    const payments = client.paymentsCount > 0 ? ` et ses ${client.paymentsCount} paiement(s)` : "";
+    if (!window.confirm(`Supprimer le client « ${client.clientName} »${payments} ?`)) return;
+    setActionError(null);
+    try {
+      await clientsMoneyService.deleteRecord(client.recordId);
+      retry();
+    } catch (err) {
+      setActionError(errorMessage(err, "Impossible de supprimer le client."));
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -42,7 +61,7 @@ export function ClientsMoneyPage() {
         {isAdmin && (
           <button
             type="button"
-            onClick={() => setIsRecordFormOpen(true)}
+            onClick={() => setRecordForm({ mode: "create" })}
             className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
           >
             <Plus size={16} />
@@ -50,6 +69,8 @@ export function ClientsMoneyPage() {
           </button>
         )}
       </div>
+
+      {actionError && <ActionError message={actionError} onDismiss={() => setActionError(null)} />}
 
       <div className="grid grid-cols-2 gap-3 *:last:col-span-2 sm:grid-cols-3 sm:gap-4 sm:*:last:col-span-1">
         {stats ? (
@@ -94,6 +115,16 @@ export function ClientsMoneyPage() {
           onRetry={retry}
           onViewDetails={(recordId, name) => setDetailsTarget({ id: recordId, name })}
           onAddPayment={isAdmin ? (recordId, name) => setPaymentTarget({ id: recordId, name }) : undefined}
+          onEdit={
+            isAdmin
+              ? (client) =>
+                  setRecordForm({
+                    mode: "edit",
+                    record: { id: client.recordId, clientName: client.clientName, montant: client.montant, date: client.date },
+                  })
+              : undefined
+          }
+          onDelete={isAdmin ? handleDelete : undefined}
         />
 
         {!isLoading && !error && clients.length > 0 && (
@@ -101,13 +132,20 @@ export function ClientsMoneyPage() {
         )}
       </div>
 
-      {isRecordFormOpen && (
-        <Modal title="Nouveau client" onClose={() => setIsRecordFormOpen(false)}>
+      {recordForm && (
+        <Modal
+          title={recordForm.mode === "edit" ? "Modifier le client" : "Nouveau client"}
+          onClose={() => setRecordForm(null)}
+        >
           <ClientMoneyRecordForm
-            onCancel={() => setIsRecordFormOpen(false)}
+            record={recordForm.mode === "edit" ? recordForm.record : undefined}
+            onCancel={() => setRecordForm(null)}
             onSuccess={() => {
-              setIsRecordFormOpen(false);
-              refreshAll();
+              // A new client shows up on page 1; an edited one stays where it is.
+              const wasEdit = recordForm.mode === "edit";
+              setRecordForm(null);
+              if (wasEdit) retry();
+              else refreshAll();
             }}
           />
         </Modal>
@@ -118,6 +156,7 @@ export function ClientsMoneyPage() {
           recordId={detailsTarget.id}
           clientName={detailsTarget.name}
           onClose={() => setDetailsTarget(null)}
+          onChanged={isAdmin ? retry : undefined}
         />
       )}
 

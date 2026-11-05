@@ -1,16 +1,19 @@
 import { useEffect, useState } from "react";
 import { gazoilService } from "../../services/gazoil";
+import type { GazoilRecord } from "../../types/gazoil";
+import { errorMessage } from "../gestion/gestionUtils";
 
 interface GazoilFormProps {
+  record?: GazoilRecord; // present when editing
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function GazoilForm({ onSuccess, onCancel }: GazoilFormProps) {
+export function GazoilForm({ record, onSuccess, onCancel }: GazoilFormProps) {
   const [matricules, setMatricules] = useState<string[]>([]);
-  const [matricule, setMatricule] = useState("");
-  const [price, setPrice] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [matricule, setMatricule] = useState(record?.matricule ?? "");
+  const [price, setPrice] = useState(record ? String(record.price) : "");
+  const [date, setDate] = useState(() => record?.date ?? new Date().toISOString().slice(0, 10));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -41,10 +44,12 @@ export function GazoilForm({ onSuccess, onCancel }: GazoilFormProps) {
 
     setIsSubmitting(true);
     try {
-      await gazoilService.createRecord({ matricule: trimmedMatricule, price: numericPrice, date });
+      const input = { matricule: trimmedMatricule, price: numericPrice, date };
+      if (record) await gazoilService.updateRecord(record.id, input);
+      else await gazoilService.createRecord(input);
       onSuccess();
-    } catch {
-      setFormError("Impossible d'enregistrer le plein. Veuillez réessayer.");
+    } catch (err) {
+      setFormError(errorMessage(err, "Impossible d'enregistrer le plein. Veuillez réessayer."));
     } finally {
       setIsSubmitting(false);
     }

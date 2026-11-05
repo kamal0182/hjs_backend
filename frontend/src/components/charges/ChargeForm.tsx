@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { chargesService } from "../../services/charges";
+import type { ChargeRecord } from "../../types/charges";
+import { errorMessage } from "../gestion/gestionUtils";
 
 interface ChargeFormProps {
+  charge?: ChargeRecord; // present when editing
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function ChargeForm({ onSuccess, onCancel }: ChargeFormProps) {
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [comment, setComment] = useState("");
-  const [montant, setMontant] = useState("");
+export function ChargeForm({ charge, onSuccess, onCancel }: ChargeFormProps) {
+  const [date, setDate] = useState(() => charge?.date ?? new Date().toISOString().slice(0, 10));
+  const [comment, setComment] = useState(charge?.comment ?? "");
+  const [montant, setMontant] = useState(charge ? String(charge.montant) : "");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -34,10 +37,12 @@ export function ChargeForm({ onSuccess, onCancel }: ChargeFormProps) {
 
     setIsSubmitting(true);
     try {
-      await chargesService.createCharge({ date, comment: comment.trim(), montant: numericMontant });
+      const input = { date, comment: comment.trim(), montant: numericMontant };
+      if (charge) await chargesService.updateCharge(charge.id, input);
+      else await chargesService.createCharge(input);
       onSuccess();
-    } catch {
-      setFormError("Impossible d'enregistrer la charge. Veuillez réessayer.");
+    } catch (err) {
+      setFormError(errorMessage(err, "Impossible d'enregistrer la charge. Veuillez réessayer."));
     } finally {
       setIsSubmitting(false);
     }

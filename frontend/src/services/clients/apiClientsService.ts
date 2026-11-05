@@ -29,4 +29,12 @@ export const apiClientsService: ClientsService = {
   createCommande(input: CreateCommandeInput) {
     return api.post<Commande>("/commandes/", input);
   },
+
+  updateCommande(id: string, input: CreateCommandeInput) {
+    return api.put<Commande>(`/commandes/${id}/`, input);
+  },
+
+  deleteCommande(id: string) {
+    return api.delete(`/commandes/${id}/`);
+  },
 };

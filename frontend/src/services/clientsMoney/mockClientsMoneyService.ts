@@ -35,6 +35,8 @@ function buildSummaries(): ClientMoneySummary[] {
     return {
       recordId: record.id,
       clientName: record.clientName,
+      montant: record.montant,
+      date: record.date,
       latestMontant: entries[0].price,
       latestDate: entries[0].date,
       paymentsCount: payments.length,
@@ -105,6 +107,35 @@ export const mockClientsMoneyService: ClientsMoneyService = {
     };
     MOCK_PAYMENTS.unshift(payment);
     return wait(payment);
+  },
+
+  async updateRecord(id: string, input: CreateClientMoneyRecordInput): Promise<ClientMoneyRecord> {
+    const index = MOCK_CLIENT_MONEY_RECORDS.findIndex((r) => r.id === id);
+    if (index === -1) throw new Error("Client introuvable.");
+    MOCK_CLIENT_MONEY_RECORDS[index] = { ...MOCK_CLIENT_MONEY_RECORDS[index], ...input };
+    return wait(MOCK_CLIENT_MONEY_RECORDS[index]);
+  },
+
+  async deleteRecord(id: string): Promise<void> {
+    const index = MOCK_CLIENT_MONEY_RECORDS.findIndex((r) => r.id === id);
+    if (index !== -1) MOCK_CLIENT_MONEY_RECORDS.splice(index, 1);
+    for (let i = MOCK_PAYMENTS.length - 1; i >= 0; i--) {
+      if (MOCK_PAYMENTS[i].recordId === id) MOCK_PAYMENTS.splice(i, 1);
+    }
+    return wait(undefined);
+  },
+
+  async updatePayment(id: string, input: CreatePaymentInput): Promise<PaymentRecord> {
+    const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
+    if (index === -1) throw new Error("Paiement introuvable.");
+    MOCK_PAYMENTS[index] = { ...MOCK_PAYMENTS[index], ...input };
+    return wait(MOCK_PAYMENTS[index]);
+  },
+
+  async deletePayment(id: string): Promise<void> {
+    const index = MOCK_PAYMENTS.findIndex((p) => p.id === id);
+    if (index !== -1) MOCK_PAYMENTS.splice(index, 1);
+    return wait(undefined);
   },
 
   async getRecord(recordId: string): Promise<ClientMoneyRecord> {

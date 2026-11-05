@@ -117,7 +117,11 @@ export function GazoilPage() {
       )}
 
       {selectedMatricule && (
-        <GazoilDetailsModal matricule={selectedMatricule} onClose={() => setSelectedMatricule(null)} />
+        <GazoilDetailsModal
+          matricule={selectedMatricule}
+          onClose={() => setSelectedMatricule(null)}
+          onChanged={isAdmin ? retry : undefined}
+        />
       )}
 
       {commentTargetMatricule && (
@@ -135,6 +139,7 @@ export function GazoilPage() {
         <GazoilCommentsListModal
           matricule={viewCommentsMatricule}
           onClose={() => setViewCommentsMatricule(null)}
+          onChanged={isAdmin ? retry : undefined}
         />
       )}
     </div>

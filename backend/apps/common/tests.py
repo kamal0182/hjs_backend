@@ -52,6 +52,23 @@ class ClientsApiTests(BusinessApiTestCase):
         # A client with commandes cannot be deleted.
         self.assertEqual(self.client.delete(f"/api/clients/{client['id']}/").status_code, 409)
 
+        # Editing a commande replaces its lines and keeps its reference.
+        url = f"/api/commandes/{response.data['id']}/"
+        edited = {**payload, 'lines': [{'category': 'Toufna', 'quantity': 2.5}], 'city': 'Rabat', 'comment': 'Urgent'}
+        updated = self.client.put(url, edited, format='json')
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(updated.data['commandeRef'], response.data['commandeRef'])
+        self.assertEqual(updated.data['lines'], [{'category': 'Toufna', 'quantity': 2.5}])
+        self.assertEqual((updated.data['city'], updated.data['comment']), ('Rabat', 'Urgent'))
+
+        self.as_viewer()
+        self.assertEqual(self.client.delete(url).status_code, 403)
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertEqual(self.client.get('/api/commandes/stats/').data['totalCommandes'], 0)
+        # Once its commandes are gone, the client can be deleted.
+        self.assertEqual(self.client.delete(f"/api/clients/{client['id']}/").status_code, 204)
+
     def test_viewer_can_read_but_not_write(self):
         self.as_viewer()
         self.assertEqual(self.client.get('/api/clients/').status_code, 200)
@@ -86,6 +103,31 @@ class GazoilApiTests(BusinessApiTestCase):
         self.assertEqual([r['date'] for r in history], ['2026-02-01', '2026-01-01'])
         self.assertEqual(len(self.client.get('/api/gazoil/comments/', {'matricule': '123-A-45'}).data), 1)
 
+        # Edit then delete a plein: the truck's summary follows.
+        latest = history[0]
+        updated = self.client.put(f"/api/gazoil/records/{latest['id']}/",
+                                  {'matricule': '123-A-45', 'price': 650, 'date': '2026-02-01'}, format='json')
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(self.client.get('/api/gazoil/camions/stats/').data['totalPriceAll'], 1250.0)
+        self.assertEqual(self.client.delete(f"/api/gazoil/records/{latest['id']}/").status_code, 204)
+        first = self.client.get('/api/gazoil/camions/', {'page': 1, 'pageSize': 10}).data['data'][0]
+        self.assertEqual((first['latestPrice'], first['recordsCount']), (500.0, 1))
+
+        # Edit then delete a commentaire.
+        comment = self.client.get('/api/gazoil/comments/', {'matricule': '123-A-45'}).data[0]
+        url = f"/api/gazoil/comments/{comment['id']}/"
+        updated = self.client.put(url, {'matricule': '123-A-45', 'comment': ' Vidange + filtres ', 'date': '2026-02-03'},
+                                  format='json')
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual((updated.data['comment'], updated.data['date']), ('Vidange + filtres', '2026-02-03'))
+        self.assertEqual(self.client.put(url, {'matricule': '123-A-45', 'comment': '  ', 'date': '2026-02-03'},
+                                         format='json').status_code, 400)
+        self.as_viewer()
+        self.assertEqual(self.client.delete(url).status_code, 403)
+        self.client.force_authenticate(self.admin)
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertEqual(self.client.get('/api/gazoil/comments/', {'matricule': '123-A-45'}).data, [])
+
 
 class ClientsMoneyApiTests(BusinessApiTestCase):
     def test_clients_money_flow(self):
@@ -99,14 +141,37 @@ class ClientsMoneyApiTests(BusinessApiTestCase):
 
         summary = self.client.get('/api/clients-money/records/', {'search': 'kar', 'page': 1, 'pageSize': 8}).data['data'][0]
         self.assertEqual(summary, {
-            'recordId': record['id'], 'clientName': 'Karim', 'latestMontant': 250.0,
-            'latestDate': '2026-03-01', 'paymentsCount': 1, 'totalMontant': 1250.0,
+            'recordId': record['id'], 'clientName': 'Karim', 'montant': 1000.0, 'date': '2026-01-01',
+            'latestMontant': 250.0, 'latestDate': '2026-03-01', 'paymentsCount': 1, 'totalMontant': 1250.0,
         })
         self.assertEqual(self.client.get('/api/clients-money/records/stats/').data,
                          {'totalCollected': 1250.0, 'totalClients': 1, 'totalPayments': 1})
 
         bad = {'recordId': record['id'], 'paymentType': 'Bitcoin', 'price': 1, 'date': '2026-03-01'}
         self.assertEqual(self.client.post('/api/clients-money/payments/', bad, format='json').status_code, 400)
+
+        # Edit the payment and the record.
+        payment_url = f"/api/clients-money/payments/{response.data['id']}/"
+        updated = self.client.put(payment_url, {
+            'recordId': record['id'], 'paymentType': 'cash', 'price': 300, 'date': '2026-03-02',
+        }, format='json')
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual((updated.data['paymentType'], updated.data['price']), ('Cash', 300.0))
+        record_url = f"/api/clients-money/records/{record['id']}/"
+        updated = self.client.put(record_url, {'clientName': 'Karim B.', 'montant': 900, 'date': '2026-01-02'},
+                                  format='json')
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(self.client.get('/api/clients-money/records/stats/').data['totalCollected'], 1200.0)
+
+        # Delete the payment, then the record (which takes any remaining payments with it).
+        self.assertEqual(self.client.delete(payment_url).status_code, 204)
+        self.assertEqual(self.client.get('/api/clients-money/payments/', {'recordId': record['id']}).data, [])
+        self.client.post('/api/clients-money/payments/', {
+            'recordId': record['id'], 'paymentType': 'Cash', 'price': 10, 'date': '2026-04-01',
+        }, format='json')
+        self.assertEqual(self.client.delete(record_url).status_code, 204)
+        self.assertEqual(self.client.get('/api/clients-money/records/stats/').data,
+                         {'totalCollected': 0.0, 'totalClients': 0, 'totalPayments': 0})
 
 
 class ChargesApiTests(BusinessApiTestCase):
@@ -119,6 +184,20 @@ class ChargesApiTests(BusinessApiTestCase):
         self.assertEqual(self.client.get('/api/charges/stats/').data, {'totalMontant': 4500.25, 'totalRecords': 2})
         self.assertEqual(self.client.post('/api/charges/', {'date': '2026-01-01', 'comment': 'x', 'montant': -5},
                                           format='json').status_code, 400)
+
+        loyer = page['data'][1]
+        url = f"/api/charges/{loyer['id']}/"
+        updated = self.client.put(url, {'date': '2026-01-05', 'comment': 'Loyer janvier', 'montant': 3200}, format='json')
+        self.assertEqual(updated.status_code, 200, updated.data)
+        self.assertEqual(self.client.get('/api/charges/stats/').data, {'totalMontant': 4700.25, 'totalRecords': 2})
+
+        # Deleting the only row of the last page: that page now clamps to the last one instead of a 404.
+        self.assertEqual(self.client.get('/api/charges/', {'page': 2, 'pageSize': 1}).data['data'][0]['id'], loyer['id'])
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        page = self.client.get('/api/charges/', {'page': 2, 'pageSize': 1})
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual((page.data['page'], page.data['total']), (1, 1))
+        self.assertEqual(self.client.get('/api/charges/', {'page': 'abc'}).status_code, 404)
 
 
 class LookupApiTests(BusinessApiTestCase):

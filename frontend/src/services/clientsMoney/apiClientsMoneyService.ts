@@ -24,8 +24,24 @@ export const apiClientsMoneyService: ClientsMoneyService = {
     return api.post<ClientMoneyRecord>("/clients-money/records/", input);
   },
 
+  updateRecord(id: string, input: CreateClientMoneyRecordInput) {
+    return api.put<ClientMoneyRecord>(`/clients-money/records/${id}/`, input);
+  },
+
+  deleteRecord(id: string) {
+    return api.delete(`/clients-money/records/${id}/`);
+  },
+
   createPayment(input: CreatePaymentInput) {
     return api.post<PaymentRecord>("/clients-money/payments/", input);
+  },
+
+  updatePayment(id: string, input: CreatePaymentInput) {
+    return api.put<PaymentRecord>(`/clients-money/payments/${id}/`, input);
+  },
+
+  deletePayment(id: string) {
+    return api.delete(`/clients-money/payments/${id}/`);
   },
 
   getRecord(recordId: string) {

@@ -27,6 +27,9 @@ class ClientMoneyRecordSerializer(serializers.ModelSerializer):
 class ClientMoneySummarySerializer(serializers.Serializer):
     recordId = serializers.CharField(source='id')
     clientName = serializers.CharField(source='client_name')
+    # The record's own (initial) entry, used to pre-fill the edit form.
+    montant = serializers.DecimalField(max_digits=12, decimal_places=2)
+    date = serializers.DateField()
     latestMontant = serializers.DecimalField(source='latest_montant', max_digits=14, decimal_places=2)
     latestDate = serializers.DateField(source='latest_date')
     paymentsCount = serializers.IntegerField(source='payments_count')

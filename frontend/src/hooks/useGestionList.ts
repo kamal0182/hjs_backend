@@ -43,11 +43,13 @@ export function useGestionList<T>(
       try {
         const result = await fetchPage({ search: search || undefined, page, pageSize: PAGE_SIZE });
         if (cancelled) return;
-        // Deleting the last row of the last page: step back one page.
+        // Deleting the last row of the last page: step back one page. Paginated API
+        // endpoints already clamp the page, so just follow the one they returned.
         if (result.data.length === 0 && page > 1) {
           setPage(page - 1);
           return;
         }
+        if (result.page !== page) setPage(result.page);
         setItems(result.data);
         setTotal(result.total);
       } catch {

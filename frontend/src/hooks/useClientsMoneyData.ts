@@ -46,6 +46,8 @@ export function useClientsMoneyData() {
           pageSize: PAGE_SIZE,
         });
         if (cancelled) return;
+        // The API clamps a page past the end (e.g. after deleting the last row): follow it.
+        if (result.page !== page) setPage(result.page);
         setClients(result.data);
         setTotal(result.total);
       } catch {

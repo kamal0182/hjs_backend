@@ -18,4 +18,6 @@ export interface ClientsService {
   getCities(): Promise<string[]>;
   getClients(): Promise<ClientOption[]>;
   createCommande(input: CreateCommandeInput): Promise<Commande>;
+  updateCommande(id: string, input: CreateCommandeInput): Promise<Commande>;
+  deleteCommande(id: string): Promise<void>;
 }

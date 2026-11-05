@@ -2,6 +2,7 @@ import { Eye, Plus } from "lucide-react";
 import type { ClientMoneySummary } from "../../types/clientsMoney";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { formatDate } from "../../utils/formatDate";
+import { RowActions } from "../gestion/GestionParts";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "../ui/QueryStates";
 
 interface ClientsMoneyTableProps {
@@ -10,8 +11,10 @@ interface ClientsMoneyTableProps {
   error: string | null;
   onRetry: () => void;
   onViewDetails: (recordId: string, clientName: string) => void;
-  // Omitted for read-only users: the "Ajouter" button is hidden.
+  // Omitted for read-only users: the "Ajouter" button and Actions column are hidden.
   onAddPayment?: (recordId: string, clientName: string) => void;
+  onEdit?: (client: ClientMoneySummary) => void;
+  onDelete?: (client: ClientMoneySummary) => void;
 }
 
 export function ClientsMoneyTable({
@@ -21,6 +24,8 @@ export function ClientsMoneyTable({
   onRetry,
   onViewDetails,
   onAddPayment,
+  onEdit,
+  onDelete,
 }: ClientsMoneyTableProps) {
   if (isLoading) return <TableLoadingState message="Chargement des clients…" />;
   if (error) return <TableErrorState message={error} onRetry={onRetry} />;
@@ -35,7 +40,7 @@ export function ClientsMoneyTable({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] table-fixed text-left text-sm">
+      <table className={`w-full ${onEdit ? "min-w-[720px]" : "min-w-[640px]"} table-fixed text-left text-sm`}>
         <thead>
           <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <th className="w-[30%] px-4 py-3">Nom du client</th>
@@ -43,6 +48,7 @@ export function ClientsMoneyTable({
             <th className="w-[16%] px-4 py-3">Date</th>
             {onAddPayment && <th className="w-[18%] px-4 py-3 text-center">Ajouter</th>}
             <th className="w-[18%] px-4 py-3 text-center">Détails</th>
+            {onEdit && <th className="w-[12%] px-4 py-3 text-right">Actions</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -83,6 +89,11 @@ export function ClientsMoneyTable({
                   <span className="block text-center text-slate-300">—</span>
                 )}
               </td>
+              {onEdit && (
+                <td className="px-4 py-3">
+                  <RowActions onEdit={() => onEdit(client)} onDelete={onDelete && (() => onDelete(client))} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

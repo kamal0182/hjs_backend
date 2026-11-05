@@ -30,6 +30,8 @@ export function useChargesData() {
       try {
         const result = await chargesService.getCharges({ page, pageSize: PAGE_SIZE });
         if (cancelled) return;
+        // The API clamps a page past the end (e.g. after deleting the last row): follow it.
+        if (result.page !== page) setPage(result.page);
         setCharges(result.data);
         setTotal(result.total);
       } catch {

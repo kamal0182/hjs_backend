@@ -1,19 +1,21 @@
 import { useEffect, useState } from "react";
 import { clientsMoneyService } from "../../services/clientsMoney";
 import { gestionService } from "../../services/gestion";
-import type { PaymentType } from "../../types/clientsMoney";
+import type { PaymentRecord, PaymentType } from "../../types/clientsMoney";
+import { errorMessage } from "../gestion/gestionUtils";
 
 interface PaymentFormProps {
   recordId: string;
+  payment?: PaymentRecord; // present when editing
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function PaymentForm({ recordId, onSuccess, onCancel }: PaymentFormProps) {
+export function PaymentForm({ recordId, payment, onSuccess, onCancel }: PaymentFormProps) {
   const [paymentTypes, setPaymentTypes] = useState<PaymentType[]>([]);
-  const [paymentType, setPaymentType] = useState<PaymentType>("");
-  const [price, setPrice] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [paymentType, setPaymentType] = useState<PaymentType>(payment?.paymentType ?? "");
+  const [price, setPrice] = useState(payment ? String(payment.price) : "");
+  const [date, setDate] = useState(() => payment?.date ?? new Date().toISOString().slice(0, 10));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -50,10 +52,12 @@ export function PaymentForm({ recordId, onSuccess, onCancel }: PaymentFormProps)
 
     setIsSubmitting(true);
     try {
-      await clientsMoneyService.createPayment({ recordId, paymentType, price: numericPrice, date });
+      const input = { recordId, paymentType, price: numericPrice, date };
+      if (payment) await clientsMoneyService.updatePayment(payment.id, input);
+      else await clientsMoneyService.createPayment(input);
       onSuccess();
-    } catch {
-      setFormError("Impossible d'enregistrer le paiement. Veuillez réessayer.");
+    } catch (err) {
+      setFormError(errorMessage(err, "Impossible d'enregistrer le paiement. Veuillez réessayer."));
     } finally {
       setIsSubmitting(false);
     }
@@ -116,7 +120,7 @@ export function PaymentForm({ recordId, onSuccess, onCancel }: PaymentFormProps)
           disabled={isSubmitting}
           className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSubmitting ? "Enregistrement…" : "Ajouter"}
+          {isSubmitting ? "Enregistrement…" : payment ? "Enregistrer" : "Ajouter"}
         </button>
       </div>
     </form>

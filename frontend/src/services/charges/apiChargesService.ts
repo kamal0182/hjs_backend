@@ -15,4 +15,12 @@ export const apiChargesService: ChargesService = {
   createCharge(input: CreateChargeInput) {
     return api.post<ChargeRecord>("/charges/", input);
   },
+
+  updateCharge(id: string, input: CreateChargeInput) {
+    return api.put<ChargeRecord>(`/charges/${id}/`, input);
+  },
+
+  deleteCharge(id: string) {
+    return api.delete(`/charges/${id}/`);
+  },
 };

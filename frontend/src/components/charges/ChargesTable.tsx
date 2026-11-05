@@ -1,6 +1,7 @@
 import type { ChargeRecord } from "../../types/charges";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { formatDate } from "../../utils/formatDate";
+import { RowActions } from "../gestion/GestionParts";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "../ui/QueryStates";
 
 interface ChargesTableProps {
@@ -8,9 +9,12 @@ interface ChargesTableProps {
   isLoading: boolean;
   error: string | null;
   onRetry: () => void;
+  // Omitted for read-only users: the Actions column is hidden.
+  onEdit?: (charge: ChargeRecord) => void;
+  onDelete?: (charge: ChargeRecord) => void;
 }
 
-export function ChargesTable({ charges, isLoading, error, onRetry }: ChargesTableProps) {
+export function ChargesTable({ charges, isLoading, error, onRetry, onEdit, onDelete }: ChargesTableProps) {
   if (isLoading) return <TableLoadingState message="Chargement des charges…" />;
   if (error) return <TableErrorState message={error} onRetry={onRetry} />;
   if (charges.length === 0) {
@@ -22,14 +26,17 @@ export function ChargesTable({ charges, isLoading, error, onRetry }: ChargesTabl
     );
   }
 
+  const canManage = Boolean(onEdit);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] table-fixed text-left text-sm">
         <thead>
           <tr className="border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <th className="w-[15%] px-4 py-3">Date</th>
-            <th className="w-[60%] px-4 py-3">Commentaire</th>
-            <th className="w-[25%] px-4 py-3">Montant</th>
+            <th className={`${canManage ? "w-[50%]" : "w-[60%]"} px-4 py-3`}>Commentaire</th>
+            <th className={`${canManage ? "w-[20%]" : "w-[25%]"} px-4 py-3`}>Montant</th>
+            {canManage && <th className="w-[15%] px-4 py-3 text-right">Actions</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -42,6 +49,11 @@ export function ChargesTable({ charges, isLoading, error, onRetry }: ChargesTabl
                 </p>
               </td>
               <td className="px-4 py-3 font-medium text-slate-900">{formatCurrency(charge.montant)}</td>
+              {onEdit && (
+                <td className="px-4 py-3">
+                  <RowActions onEdit={() => onEdit(charge)} onDelete={onDelete && (() => onDelete(charge))} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

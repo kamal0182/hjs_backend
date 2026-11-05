@@ -32,11 +32,27 @@ export const apiGazoilService: GazoilService = {
     return api.post<GazoilRecord>("/gazoil/records/", input);
   },
 
+  updateRecord(id: string, input: CreateGazoilRecordInput) {
+    return api.put<GazoilRecord>(`/gazoil/records/${id}/`, input);
+  },
+
+  deleteRecord(id: string) {
+    return api.delete(`/gazoil/records/${id}/`);
+  },
+
   getCommentsForMatricule(matricule: string) {
     return api.get<GazoilComment[]>("/gazoil/comments/", { matricule });
   },
 
   addComment(input: CreateGazoilCommentInput) {
     return api.post<GazoilComment>("/gazoil/comments/", input);
+  },
+
+  updateComment(id: string, input: CreateGazoilCommentInput) {
+    return api.put<GazoilComment>(`/gazoil/comments/${id}/`, input);
+  },
+
+  deleteComment(id: string) {
+    return api.delete(`/gazoil/comments/${id}/`);
   },
 };

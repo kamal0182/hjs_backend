@@ -25,6 +25,8 @@ export interface PaymentRecord {
 export interface ClientMoneySummary {
   recordId: string;
   clientName: string;
+  montant: number; // the record's initial entry
+  date: string;
   latestMontant: number;
   latestDate: string;
   paymentsCount: number;

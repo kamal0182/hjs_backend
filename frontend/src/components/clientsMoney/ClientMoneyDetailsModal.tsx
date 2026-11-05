@@ -3,13 +3,19 @@ import { clientsMoneyService } from "../../services/clientsMoney";
 import type { ClientMoneyRecord, PaymentRecord } from "../../types/clientsMoney";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { formatDate } from "../../utils/formatDate";
+import { ActionError, RowActions } from "../gestion/GestionParts";
+import { errorMessage } from "../gestion/gestionUtils";
 import { Modal } from "../ui/Modal";
 import { TableEmptyState, TableErrorState, TableLoadingState } from "../ui/QueryStates";
+import { PaymentForm } from "./PaymentForm";
 
 interface ClientMoneyDetailsModalProps {
   recordId: string;
   clientName: string;
   onClose: () => void;
+  // Omitted for read-only users: payments cannot be edited or deleted.
+  // Called after a payment changes so the page can refresh its totals.
+  onChanged?: () => void;
 }
 
 interface Details {
@@ -17,9 +23,11 @@ interface Details {
   payments: PaymentRecord[];
 }
 
-export function ClientMoneyDetailsModal({ recordId, clientName, onClose }: ClientMoneyDetailsModalProps) {
+export function ClientMoneyDetailsModal({ recordId, clientName, onClose, onChanged }: ClientMoneyDetailsModalProps) {
   const [details, setDetails] = useState<Details | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingPayment, setEditingPayment] = useState<PaymentRecord | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   function load() {
     setDetails(null);
@@ -31,7 +39,41 @@ export function ClientMoneyDetailsModal({ recordId, clientName, onClose }: Clien
 
   useEffect(load, [recordId]);
 
+  function handleChanged() {
+    load();
+    onChanged?.();
+  }
+
+  async function handleDelete(payment: PaymentRecord) {
+    if (!window.confirm(`Supprimer le paiement du ${formatDate(payment.date)} (${formatCurrency(payment.price)}) ?`)) {
+      return;
+    }
+    setActionError(null);
+    try {
+      await clientsMoneyService.deletePayment(payment.id);
+      handleChanged();
+    } catch (err) {
+      setActionError(errorMessage(err, "Impossible de supprimer le paiement."));
+    }
+  }
+
   const totalPayments = details?.payments.reduce((sum, p) => sum + p.price, 0) ?? 0;
+
+  if (editingPayment) {
+    return (
+      <Modal title={`Modifier le paiement — ${clientName}`} onClose={() => setEditingPayment(null)}>
+        <PaymentForm
+          recordId={recordId}
+          payment={editingPayment}
+          onCancel={() => setEditingPayment(null)}
+          onSuccess={() => {
+            setEditingPayment(null);
+            handleChanged();
+          }}
+        />
+      </Modal>
+    );
+  }
 
   return (
     <Modal title={`Paiements — ${clientName}`} onClose={onClose}>
@@ -54,6 +96,12 @@ export function ClientMoneyDetailsModal({ recordId, clientName, onClose }: Clien
             </div>
           </div>
 
+          {actionError && (
+            <div className="mb-4">
+              <ActionError message={actionError} onDismiss={() => setActionError(null)} />
+            </div>
+          )}
+
           {details.payments.length === 0 ? (
             <TableEmptyState
               title="Aucun paiement"
@@ -67,6 +115,7 @@ export function ClientMoneyDetailsModal({ recordId, clientName, onClose }: Clien
                     <th className="px-3 py-2">Date</th>
                     <th className="px-3 py-2">Type</th>
                     <th className="px-3 py-2 text-right">Montant</th>
+                    {onChanged && <th className="px-3 py-2 text-right">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -81,6 +130,17 @@ export function ClientMoneyDetailsModal({ recordId, clientName, onClose }: Clien
                       <td className="px-3 py-2 text-right font-medium text-slate-900">
                         {formatCurrency(payment.price)}
                       </td>
+                      {onChanged && (
+                        <td className="px-3 py-2">
+                          <RowActions
+                            onEdit={() => {
+                              setActionError(null);
+                              setEditingPayment(payment);
+                            }}
+                            onDelete={() => handleDelete(payment)}
+                          />
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

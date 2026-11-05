@@ -7,4 +7,6 @@ export interface ChargesService {
   getCharges(params: ChargeQueryParams): Promise<PaginatedResult<ChargeRecord>>;
   getStats(): Promise<ChargesStats>;
   createCharge(input: CreateChargeInput): Promise<ChargeRecord>;
+  updateCharge(id: string, input: CreateChargeInput): Promise<ChargeRecord>;
+  deleteCharge(id: string): Promise<void>;
 }

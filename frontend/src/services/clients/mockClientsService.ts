@@ -109,4 +109,23 @@ export const mockClientsService: ClientsService = {
     MOCK_COMMANDES.unshift(commande);
     return wait(commande);
   },
+
+  async updateCommande(id: string, input: CreateCommandeInput): Promise<Commande> {
+    const index = MOCK_COMMANDES.findIndex((c) => c.id === id);
+    const client = CLIENT_SEEDS.find((c) => c.id === input.clientId);
+    if (index === -1 || !client) throw new Error("Commande introuvable.");
+    MOCK_COMMANDES[index] = {
+      ...MOCK_COMMANDES[index],
+      ...input,
+      clientName: client.name,
+      company: client.company,
+    };
+    return wait(MOCK_COMMANDES[index]);
+  },
+
+  async deleteCommande(id: string): Promise<void> {
+    const index = MOCK_COMMANDES.findIndex((c) => c.id === id);
+    if (index !== -1) MOCK_COMMANDES.splice(index, 1);
+    return wait(undefined);
+  },
 };

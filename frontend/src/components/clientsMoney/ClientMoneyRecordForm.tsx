@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { clientsMoneyService } from "../../services/clientsMoney";
+import type { ClientMoneyRecord } from "../../types/clientsMoney";
+import { errorMessage } from "../gestion/gestionUtils";
 
 interface ClientMoneyRecordFormProps {
+  record?: ClientMoneyRecord; // present when editing
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function ClientMoneyRecordForm({ onSuccess, onCancel }: ClientMoneyRecordFormProps) {
-  const [clientName, setClientName] = useState("");
-  const [montant, setMontant] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+export function ClientMoneyRecordForm({ record, onSuccess, onCancel }: ClientMoneyRecordFormProps) {
+  const [clientName, setClientName] = useState(record?.clientName ?? "");
+  const [montant, setMontant] = useState(record ? String(record.montant) : "");
+  const [date, setDate] = useState(() => record?.date ?? new Date().toISOString().slice(0, 10));
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -34,14 +37,12 @@ export function ClientMoneyRecordForm({ onSuccess, onCancel }: ClientMoneyRecord
 
     setIsSubmitting(true);
     try {
-      await clientsMoneyService.createRecord({
-        clientName: clientName.trim(),
-        montant: numericMontant,
-        date,
-      });
+      const input = { clientName: clientName.trim(), montant: numericMontant, date };
+      if (record) await clientsMoneyService.updateRecord(record.id, input);
+      else await clientsMoneyService.createRecord(input);
       onSuccess();
-    } catch {
-      setFormError("Impossible d'enregistrer le client. Veuillez réessayer.");
+    } catch (err) {
+      setFormError(errorMessage(err, "Impossible d'enregistrer le client. Veuillez réessayer."));
     } finally {
       setIsSubmitting(false);
     }

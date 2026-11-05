@@ -2,9 +2,11 @@ import { Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { clientsService } from "../../services/clients";
 import { gestionService } from "../../services/gestion";
-import type { Category, ClientOption, CommandeLine } from "../../types/commande";
+import type { Category, ClientOption, Commande, CommandeLine } from "../../types/commande";
+import { errorMessage } from "../gestion/gestionUtils";
 
 interface CommandeFormProps {
+  commande?: Commande; // present when editing
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -26,16 +28,20 @@ function sanitizeQuantity(raw: string): string {
   return decimals.length ? `${whole}.${decimals.join("").slice(0, 2)}` : whole;
 }
 
-export function CommandeForm({ onSuccess, onCancel }: CommandeFormProps) {
+export function CommandeForm({ commande, onSuccess, onCancel }: CommandeFormProps) {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [clientId, setClientId] = useState("");
-  const [lines, setLines] = useState<LineDraft[]>([{ category: "", quantity: "1" }]);
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [city, setCity] = useState("");
-  const [address, setAddress] = useState("");
-  const [comment, setComment] = useState("");
+  const [clientId, setClientId] = useState(commande?.clientId ?? "");
+  const [lines, setLines] = useState<LineDraft[]>(() =>
+    commande
+      ? commande.lines.map((l) => ({ category: l.category, quantity: String(l.quantity) }))
+      : [{ category: "", quantity: "1" }],
+  );
+  const [date, setDate] = useState(() => commande?.date ?? new Date().toISOString().slice(0, 10));
+  const [city, setCity] = useState(commande?.city ?? "");
+  const [address, setAddress] = useState(commande?.address ?? "");
+  const [comment, setComment] = useState(commande?.comment ?? "");
 
   const [isLoadingClients, setIsLoadingClients] = useState(true);
   const [isLoadingCities, setIsLoadingCities] = useState(true);
@@ -112,17 +118,19 @@ export function CommandeForm({ onSuccess, onCancel }: CommandeFormProps) {
 
     setIsSubmitting(true);
     try {
-      await clientsService.createCommande({
+      const input = {
         clientId,
         lines: parsedLines,
         date,
         city,
         address: address.trim(),
         comment: comment.trim(),
-      });
+      };
+      if (commande) await clientsService.updateCommande(commande.id, input);
+      else await clientsService.createCommande(input);
       onSuccess();
-    } catch {
-      setFormError("Impossible d'enregistrer la commande. Veuillez réessayer.");
+    } catch (err) {
+      setFormError(errorMessage(err, "Impossible d'enregistrer la commande. Veuillez réessayer."));
     } finally {
       setIsSubmitting(false);
     }
